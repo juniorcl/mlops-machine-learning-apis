@@ -41,6 +41,7 @@ def sentimento(frase):
     return f"polaridade: {polaridade}"
 
 @app.route('/cotacao/', methods=['POST'])
+@basic_auth.required
 def cotacao():
 
     dados = request.get_json()
