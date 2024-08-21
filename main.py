@@ -1,27 +1,25 @@
-import pandas as pd
+import pickle
 
-from flask import Flask
+from flask import Flask, request, jsonify
+from flask_basicauth import BasicAuth
 
 from textblob import TextBlob
 from deep_translator import GoogleTranslator
 
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
 
-df = pd.read_csv('data/casas.csv')
 
-colunas = ['tamanho', 'preco']
-df = df.loc[:, colunas]
+with open('./models/modelo.sav', 'rb') as f:
+    modelo = pickle.load(f)
 
-X = df.drop('preco', axis=1)
-y = df.loc[:, ['preco']]
-
-X_train, X_test, Y_train, Y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
-modelo = LinearRegression()
-modelo.fit(X_train, Y_train['preco'])
+colunas = ['tamanho', 'ano', 'garagem']
 
 app = Flask(__name__)
+
+app.config['BASIC_AUTH_USERNAME'] = 'julio'
+app.config['BASIC_AUTH_PASSWORD'] = 'alura'
+
+basic_auth = BasicAuth(app)
 
 @app.route('/')
 def home():
@@ -29,6 +27,7 @@ def home():
     return "Minha primeira API."
 
 @app.route('/sentimento/<frase>')
+@basic_auth.required
 def sentimento(frase):
 
     gt = GoogleTranslator(source='pt', target='en')
@@ -41,11 +40,15 @@ def sentimento(frase):
 
     return f"polaridade: {polaridade}"
 
-@app.route('/cotacao/<int:tamanho>')
-def cotacao(tamanho):
+@app.route('/cotacao/', methods=['POST'])
+def cotacao():
 
-    preco = modelo.predict([[tamanho]])
+    dados = request.get_json()
 
-    return str(preco)
+    dados_input = [dados[col] for col in colunas]
+
+    preco = modelo.predict([dados_input])
+
+    return jsonify(preco=preco[0])
 
 app.run(debug=True)
